@@ -1,4 +1,4 @@
-import * as convert from "xml-js";
+import { XMLBuilder } from "fast-xml-parser";
 import { generator } from "./config";
 import { Feed } from "./feed";
 import { Author, Category, Item } from "./typings";
@@ -12,14 +12,14 @@ export default (ins: Feed) => {
   const { options } = ins;
 
   const base: any = {
-    _declaration: { _attributes: { version: "1.0", encoding: "utf-8" } },
+    "?xml": { _attributes: { version: "1.0", encoding: "utf-8" } },
     feed: {
       _attributes: { xmlns: "http://www.w3.org/2005/Atom" },
       id: options.id,
       title: options.title,
       updated: options.updated ? options.updated.toISOString() : new Date().toISOString(),
-      generator: sanitize(options.generator || generator)
-    }
+      generator: sanitize(options.generator || generator),
+    },
   };
 
   if (options.author) {
@@ -89,11 +89,11 @@ export default (ins: Feed) => {
     // entry: required elements
     //
 
-    let entry: convert.ElementCompact = {
+    const entry: any = {
       title: { _attributes: { type: "html" }, _cdata: item.title },
       id: sanitize(item.id || item.link),
       link: [{ _attributes: { href: sanitize(item.link) } }],
-      updated: item.date.toISOString()
+      updated: item.date.toISOString(),
     };
 
     //
@@ -163,7 +163,15 @@ export default (ins: Feed) => {
     base.feed.entry.push(entry);
   });
 
-  return convert.js2xml(base, { compact: true, ignoreComment: true, spaces: 4 });
+  const builder = new XMLBuilder({
+    ignoreAttributes: false,
+    attributesGroupName: "_attributes",
+    textNodeName: "_text",
+    cdataPropName: "_cdata",
+    format: true,
+  });
+  return builder.build(base);
+  // return convert.js2xml(base, { compact: true, ignoreComment: true, spaces: 4 });
 };
 
 /**
@@ -173,7 +181,7 @@ export default (ins: Feed) => {
 const formatAuthor = (author: Author) => {
   const { name, email, link } = author;
 
-  const out: { name?: string, email?: string, uri?: string } = { name };
+  const out: { name?: string; email?: string; uri?: string } = { name };
   if (email) {
     out.email = email;
   }

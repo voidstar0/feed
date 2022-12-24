@@ -1,4 +1,4 @@
-import * as convert from "xml-js";
+import { XMLBuilder } from "fast-xml-parser";
 import { generator } from "./config";
 import { Feed } from "./feed";
 import { Author, Category, Enclosure, Item } from "./typings";
@@ -13,7 +13,7 @@ export default (ins: Feed) => {
   let isContent = false;
 
   const base: any = {
-    _declaration: { _attributes: { version: "1.0", encoding: "utf-8" } },
+    "?xml": { _attributes: { version: "1.0", encoding: "utf-8" } },
     rss: {
       _attributes: { version: "2.0" },
       channel: {
@@ -51,7 +51,7 @@ export default (ins: Feed) => {
     base.rss.channel.image = {
       title: { _text: options.title },
       url: { _text: options.image },
-      link: { _text: sanitize(options.link) }
+      link: { _text: sanitize(options.link) },
     };
   }
 
@@ -104,8 +104,8 @@ export default (ins: Feed) => {
     base.rss.channel["atom:link"] = {
       _attributes: {
         href: sanitize(options.hub),
-        rel: "hub"
-      }
+        rel: "hub",
+      },
     };
   }
 
@@ -116,7 +116,7 @@ export default (ins: Feed) => {
   base.rss.channel.item = [];
 
   ins.items.map((entry: Item) => {
-    let item: any = {};
+    const item: any = {};
 
     if (entry.title) {
       item.title = { _cdata: entry.title };
@@ -204,7 +204,14 @@ export default (ins: Feed) => {
   if (isAtom) {
     base.rss._attributes["xmlns:atom"] = "http://www.w3.org/2005/Atom";
   }
-  return convert.js2xml(base, { compact: true, ignoreComment: true, spaces: 4 });
+  const builder = new XMLBuilder({
+    ignoreAttributes: false,
+    attributesGroupName: "_attributes",
+    textNodeName: "_text",
+    cdataPropName: "_cdata",
+    format: true,
+  });
+  return builder.build(base);
 };
 
 /**
@@ -228,6 +235,13 @@ const formatEnclosure = (enclosure: string | Enclosure, mimeCategory = "image") 
  */
 const formatCategory = (category: Category) => {
   const { name, domain } = category;
+
+  if (!domain) {
+    return {
+      _text: name,
+    };
+  }
+
   return {
     _text: name,
     _attributes: {
